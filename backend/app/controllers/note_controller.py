@@ -125,6 +125,43 @@ def unarchive_note(
         raise to_http_exception(e)
 
 
+@router.get("/todos", response_model=NoteListResponse)
+def get_todos(
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(10, ge=1, le=100, description="Items per page"),
+    status: Optional[str] = Query(None, description="Filter by todo status"),
+    priority: Optional[str] = Query(None, description="Filter by priority"),
+    category_ids: Optional[List[int]] = Query(None, description="Filter by category IDs"),
+    db: Session = Depends(get_db)
+):
+    try:
+        service = NoteService(db)
+        result = service.get_todos(
+            page=page,
+            page_size=page_size,
+            status=status,
+            priority=priority,
+            category_ids=category_ids
+        )
+        return result
+    except NotesAppException as e:
+        raise to_http_exception(e)
+
+
+@router.patch("/{note_id}/status", response_model=NoteResponse)
+def update_todo_status(
+    note_id: int,
+    status: str = Query(..., description="New todo status"),
+    db: Session = Depends(get_db)
+):
+    try:
+        service = NoteService(db)
+        note = service.update_todo_status(note_id, status)
+        return note
+    except NotesAppException as e:
+        raise to_http_exception(e)
+
+
 @router.get("/search/{search_term}", response_model=List[NoteResponse])
 def search_notes(
     search_term: str,

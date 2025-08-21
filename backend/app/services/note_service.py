@@ -139,6 +139,51 @@ class NoteService:
             raise NotFoundError("Note", note_id)
         return self.note_repository.get_by_id_with_categories(note_id)
     
+    def get_todos(
+        self, 
+        page: int = 1, 
+        page_size: int = 10,
+        status: Optional[str] = None,
+        priority: Optional[str] = None,
+        category_ids: Optional[List[int]] = None
+    ) -> NoteListResponse:
+        skip = (page - 1) * page_size
+        
+        notes = self.note_repository.get_todos(
+            skip=skip, 
+            limit=page_size,
+            status=status,
+            priority=priority,
+            category_ids=category_ids
+        )
+        
+        total = self.note_repository.count_todos(status, priority, category_ids)
+        total_pages = math.ceil(total / page_size) if total > 0 else 0
+        
+        return NoteListResponse(
+            notes=notes,
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=total_pages
+        )
+    
+    def update_todo_status(self, note_id: int, status: str) -> Note:
+        note = self.note_repository.get_by_id(note_id)
+        if not note:
+            raise NotFoundError("Note", note_id)
+        
+        if note.note_type.value != "todo":
+            raise ValidationError("Note is not a todo item")
+        
+        # Validate status
+        valid_statuses = ["pending", "in_progress", "completed"]
+        if status not in valid_statuses:
+            raise ValidationError(f"Invalid status. Must be one of: {valid_statuses}")
+        
+        self.note_repository.update(note_id, {"todo_status": status})
+        return self.note_repository.get_by_id_with_categories(note_id)
+    
     def search_notes(
         self, 
         search_term: str, 

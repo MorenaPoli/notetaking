@@ -157,3 +157,78 @@ class NoteRepository(BaseRepository[Note]):
             self.db.commit()
             self.db.refresh(note)
         return note
+    
+    def get_todos(
+        self, 
+        skip: int = 0, 
+        limit: int = 100,
+        status: Optional[str] = None,
+        priority: Optional[str] = None,
+        category_ids: Optional[List[int]] = None
+    ) -> List[Note]:
+        """Get todos with optional filtering"""
+        from ..models.note import NoteType, TodoStatus, Priority
+        
+        query = (
+            self.db.query(Note)
+            .options(joinedload(Note.categories))
+            .filter(Note.note_type == NoteType.TODO)
+            .filter(Note.is_archived == False)
+        )
+        
+        # Filter by status if provided
+        if status:
+            query = query.filter(Note.todo_status == TodoStatus(status))
+        
+        # Filter by priority if provided
+        if priority:
+            query = query.filter(Note.priority == Priority(priority))
+        
+        # Filter by categories if provided
+        if category_ids:
+            query = (
+                query
+                .join(note_categories)
+                .filter(note_categories.c.category_id.in_(category_ids))
+                .distinct()
+            )
+        
+        return (
+            query
+            .order_by(desc(Note.updated_at))
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+    
+    def count_todos(
+        self, 
+        status: Optional[str] = None,
+        priority: Optional[str] = None,
+        category_ids: Optional[List[int]] = None
+    ) -> int:
+        """Count todos with optional filtering"""
+        query = (
+            self.db.query(Note)
+            .filter(Note.note_type == NoteType.TODO)
+            .filter(Note.is_archived == False)
+        )
+        
+        # Filter by status if provided
+        if status:
+            query = query.filter(Note.todo_status == TodoStatus(status))
+        
+        # Filter by priority if provided
+        if priority:
+            query = query.filter(Note.priority == Priority(priority))
+        
+        # Filter by categories if provided
+        if category_ids:
+            query = (
+                query
+                .join(note_categories)
+                .filter(note_categories.c.category_id.in_(category_ids))
+                .distinct()
+            )
+        
+        return query.count()
